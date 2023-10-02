@@ -1,0 +1,260 @@
+---------------------AES--------------------------------------------------------------
+from Cryptodome.Cipher import AES
+from Cryptodome.Random import get_random_bytes
+
+#define our data
+data=b"SECRETDATA"
+
+key = get_random_bytes(16)
+cipher = AES.new(key, AES.MODE_EAX)
+ciphertext, tag = cipher.encrypt_and_digest(data)
+
+file_out = open("Encrypt.txt", "wb")
+[ file_out.write(x) for x in (cipher.nonce, tag, ciphertext) ]
+file_out.close()
+
+file_in = open("Encrypt.txt", "rb")
+nonce, tag, ciphertext = [ file_in.read(x) for x in (16, 16, -1) ]
+
+cipher = AES.new(key, AES.MODE_EAX, nonce)
+data = cipher.decrypt_and_verify(ciphertext, tag)
+print(data.decode('UTF-8'))
+
+--------------------------Ceaser------------------------------------------------
+alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 '
+
+plaintext = input("Enter plaintext: ")
+key = int(input("Enter Key value: "))
+
+plaintext = plaintext.upper()
+cipher = ''
+
+for c in plaintext:
+	index = alphabet.find(c)
+	index = (index+key) % len(alphabet)
+	cipher = cipher + alphabet[index]
+
+print(cipher+"\n")
+
+ciphertext = input("Enter ciphertext: ")
+key = int(input("Enter Key value: "))
+
+ciphertext = ciphertext.upper()
+plain = ''
+
+for d in ciphertext:
+	index1 = alphabet.find(d)
+	index1 = (index1-key) % len(alphabet)
+	plain = plain + alphabet[index1]
+
+print(plain+"\n")
+
+---------------------------------DES----------------------------------------------------
+from Cryptodome.Cipher import DES
+from Cryptodome.Random import get_random_bytes
+from Cryptodome.Util.Padding import pad, unpad
+
+def generate_key():
+    # Generate a random 8-byte (64-bit) key for DES
+    return get_random_bytes(8)
+
+def des_encrypt(key, plaintext):
+    cipher = DES.new(key, DES.MODE_ECB)
+    padded_plaintext = pad(plaintext.encode(), DES.block_size)
+    ciphertext = cipher.encrypt(padded_plaintext)
+    return ciphertext
+
+def des_decrypt(key, ciphertext):
+    cipher = DES.new(key, DES.MODE_ECB)
+    decrypted_data = cipher.decrypt(ciphertext)
+    plaintext = unpad(decrypted_data, DES.block_size)
+    return plaintext.decode()
+
+if __name__ == "__main__":
+    # Example usage
+    key = generate_key()
+    plaintext = "There is no data here. Please type anytext!"
+    
+    encrypted_data = des_encrypt(key, plaintext)
+    decrypted_data = des_decrypt(key, encrypted_data)
+    
+    print("Original plaintext:", plaintext)
+    print("Encrypted data:", encrypted_data)
+    print("Decrypted plaintext:", decrypted_data)
+
+-------------------------------------------playfair------------------------------------
+def create_playfair_matrix(key):
+    # Create a Playfair matrix from the given key
+    key = key.replace(" ", "").upper()
+    key = "".join(dict.fromkeys(key))  # Remove duplicate characters
+    alphabet = "ABCDEFGHIKLMNOPQRSTUVWXYZ"
+
+    # Initialize the matrix with the key
+    matrix = [list(key)]
+
+    # Fill the matrix with the remaining alphabet characters
+    for char in alphabet:
+        if char not in matrix[0]:
+            matrix[0].append(char)
+
+    # Create a 5x5 matrix from the flattened list
+    playfair_matrix = [matrix[0][i:i + 5] for i in range(0, 25, 5)]
+    return playfair_matrix
+
+
+def encrypt_playfair(plaintext, key):
+    def find_position(matrix, char):
+        for i in range(5):
+            for j in range(5):
+                if matrix[i][j] == char:
+                    return i, j
+
+    def process_text(text):
+        text = text.replace(" ", "").upper().replace("J", "I")
+        text_pairs = [text[i:i + 2] if i + 1 < len(text) and text[i] != text[i + 1] else text[i] + "X" for i in range(0, len(text), 2)]
+        return text_pairs
+
+    playfair_matrix = create_playfair_matrix(key)
+    plaintext_pairs = process_text(plaintext)
+    ciphertext = ""
+
+    for pair in plaintext_pairs:
+        row1, col1 = find_position(playfair_matrix, pair[0])
+        row2, col2 = find_position(playfair_matrix, pair[1])
+
+        if row1 == row2:  # Same row
+            ciphertext += playfair_matrix[row1][(col1 + 1) % 5] + playfair_matrix[row2][(col2 + 1) % 5]
+        elif col1 == col2:  # Same column
+            ciphertext += playfair_matrix[(row1 + 1) % 5][col1] + playfair_matrix[(row2 + 1) % 5][col2]
+        else:  # Different row and column
+            ciphertext += playfair_matrix[row1][col2] + playfair_matrix[row2][col1]
+
+    return ciphertext
+
+
+def decrypt_playfair(ciphertext, key):
+    def find_position(matrix, char):
+        for i in range(5):
+            for j in range(5):
+                if matrix[i][j] == char:
+                    return i, j
+
+    playfair_matrix = create_playfair_matrix(key)
+    plaintext = ""
+
+    for i in range(0, len(ciphertext), 2):
+        pair = ciphertext[i:i + 2]
+        row1, col1 = find_position(playfair_matrix, pair[0])
+        row2, col2 = find_position(playfair_matrix, pair[1])
+
+        if row1 == row2:  # Same row
+            plaintext += playfair_matrix[row1][(col1 - 1) % 5] + playfair_matrix[row2][(col2 - 1) % 5]
+        elif col1 == col2:  # Same column
+            plaintext += playfair_matrix[(row1 - 1) % 5][col1] + playfair_matrix[(row2 - 1) % 5][col2]
+        else:  # Different row and column
+            plaintext += playfair_matrix[row1][col2] + playfair_matrix[row2][col1]
+
+    return plaintext
+
+
+# Example usage
+key = "Encrypt"
+plaintext = "This is my encrypted message"
+encrypted_text = encrypt_playfair(plaintext, key)
+print("Encrypted Text:", encrypted_text)
+
+decrypted_text = decrypt_playfair(encrypted_text, key)
+print("Decrypted Text:", decrypted_text)
+
+-----------------------------------------railfence-----------------------------------------
+plainText = input('Enter Any Text: ')
+key = int(input("Enter key value: "))
+
+print('\n')
+                
+cipherText = ''
+plainT = ''
+
+matrix = [['' for i in range(len(plainText))] for y in range(key)]
+
+i = 1
+row = 0
+col = 0
+
+for c in plainText:
+	if row+i<0 or row+i >= len(matrix):
+		i = i*-1
+
+	matrix[row][col] = c 
+	
+	row += i
+	col += 1
+
+for d in matrix:
+        cipherText += ''.join(d)
+
+print ('Encrypted Version:')
+print (cipherText+'\n')
+
+tran_matrix = [['' for y in range(len(matrix))] for x in range(len(matrix[0]))]
+
+for e in range(len(matrix)):
+        for j in range(len(matrix[0])):
+                tran_matrix[j] [e] = matrix[e] [j]
+
+for f in tran_matrix:
+        plainT +=''.join(f)
+
+print('Decrypted Version:')
+print (plainT)
+
+----------------------------------------------row--------------------------------------------
+import math
+
+def encryptMessage(key, message): 
+    cipherText = [''] * key
+
+    for column in range(key):
+        currentIndex = column
+
+        while currentIndex < len(message):
+            cipherText[column] += message[currentIndex]
+            currentIndex += key
+
+    return ''.join(cipherText)
+
+plainText = input("Enter plaintext: ")
+keyVal = int(input("Enter keyValue:"))
+
+cipher = encryptMessage(keyVal, plainText)
+
+print(cipher+"\n")
+
+
+def decryptMessage(key, message):
+    numColumns = int(math.ceil(len(message) / key))
+    numRows = key
+    numEmptyBoxes = (numColumns * numRows) - len(message)
+
+    plaintext = [''] * numColumns
+
+    col = 0
+    row = 0
+
+    for symbol in message:
+        plaintext[col] += symbol
+        col += 1
+
+        if (col == numColumns) or (col == numColumns - 1 and row >= numRows - numEmptyBoxes):
+            col = 0
+            row += 1
+
+    return ''.join(plaintext)
+
+cipherText = input("Enter ciphertext: ")
+keyVal = int(input("Enter keyValue: "))
+
+plainText = decryptMessage(keyVal, cipherText)
+
+print(plainText)
+--------------------------------------------------------------------------------------------
